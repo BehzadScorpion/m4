@@ -4,11 +4,10 @@
 * PROGRAMMER : Behzad Afrasiabi
 * FIRST VERSION : 2024-04-04
 * DESCRIPTION :
-*	FILL LATER
-*	FILL LATER
-*	FILL LATER
-*	FILL LATER
-*	FILL LATER
+*	this program reads a list of files from a text file with a pre-defined name. It extracts flight data 
+*	from the lines within the listed files and stores them in a struct array for processing. The program 
+*	then compares the prices for a given source-destination pairing to find the entry with the lowest fare. 
+*	It then prints the details of the flight with the lowest fare to the console.
 */
 
 
@@ -21,6 +20,7 @@
 #define STRUCT_ARRAY_SIZE 21
 #define MAX_LINE_SIZE 41
 #define MAX_FLIGHT_DATA 100
+#define MAX_FARE 999999.0 //large double used for initializing lowest fare, and going lower from there
 //exceptions
 #define SUCCESS 0
 #define FLIGHT_PARSING_ERROR -1
@@ -41,7 +41,7 @@ struct FlightData
 //Prototypes
 int parseLine(char* pSource, char* pDestination, double* pFare, char* pLineData);
 int processFlight(char filename[], struct FlightData flights[], int* pNumberOfFlights);
-void displayLeastFareDetails(struct FlightData flights[]); //LAST BUT NOT LEAST
+void displayLeastFareDetails(char source[], char destination[], int numberOfFlights, struct FlightData flights[]); 
 
 
 //MAIN
@@ -81,11 +81,15 @@ int main(void)
 			line[newlineIndex] = '\0';
 			processFlight(line, allFlightData, &totalFlightsCount);
 			
-
 		}//while loop end
 
 	}//main else block END
-	
+
+	//providing hypothetical values so that the program runs:
+	char source[STRUCT_ARRAY_SIZE] = "Toronto"; 
+	char destination[STRUCT_ARRAY_SIZE] = "Vancouver";
+
+	displayLeastFareDetails(source, destination, totalFlightsCount, allFlightData);
 	return SUCCESS;
 }//MAIN end
 
@@ -152,7 +156,7 @@ int processFlight(char filename[], struct FlightData flights[], int* pNumberOfFl
 	else
 	{//main else block
 
-		while (fgets(flightLine, MAX_LINE_SIZE, pFlightsFile) != NULL)
+		while (fgets(flightLine, MAX_LINE_SIZE, pFlightsFile) != NULL && *pNumberOfFlights < MAX_FLIGHT_DATA)
 		{
 			if (feof(pFlightsFile)) //end of file?
 			{
@@ -188,4 +192,55 @@ int processFlight(char filename[], struct FlightData flights[], int* pNumberOfFl
 	}//main else block end
 
 	return SUCCESS;
+}
+
+
+//
+// FUNCTION : displayLeastFareDetails()
+// DESCRIPTION :
+//	This function takes a source and a destination C-string, and it will attempt to find the array entry
+//	with the lowest fare with that source-destination pair. It will then print the entry onto the console.
+// PARAMETERS :
+//	char source[]: the source in the source-destination pair being looked at
+//	char destination[]: the destination in the source-destination pair being looked at
+//	int numberOfFlights: total number of flight data passed from the main variable in main()
+//	struct FlightData flights[]: array of FlighData objects used to store all flight data, each with its' own
+//								source-destination pair.
+// RETURNS : 
+//	void: this function returns nothing.
+//	
+void displayLeastFareDetails(char source[], char destination[], int numberOfFlights, struct FlightData flights[])
+{
+	float lowestFare = MAX_FARE;
+	int lowestFareIndex = -1;
+	char theSource[STRUCT_ARRAY_SIZE] = { 0 }; // Initialize buffer to hold parsed source
+	char theDestination[STRUCT_ARRAY_SIZE] = { 0 }; // Initialize buffer to hold parsed destination
+
+	for (int i = 0; i < numberOfFlights; i++)
+	{
+		FlightData current = flights[i];
+		// Parse the source and destination from each FlightData struct
+		sscanf_s(current.source, "%s", theSource, STRUCT_ARRAY_SIZE);
+		sscanf_s(current.destination, "%s", theDestination, STRUCT_ARRAY_SIZE);
+
+		// Compare the parsed source and destination with the provided source and destination
+		if (strncmp(theSource, source, STRUCT_ARRAY_SIZE) == 0 && strncmp(theDestination, destination, STRUCT_ARRAY_SIZE) == 0)
+		{
+			if (current.fare < lowestFare)
+			{
+				lowestFare = current.fare;
+				lowestFareIndex = i;
+			}
+		}
+	}
+
+	if (lowestFareIndex == -1)
+	{//exception
+		printf("No matches found for the source-destination pair.");
+	}
+	else
+	{
+		FlightData lowestFareData = flights[lowestFareIndex];
+		printf("%s: %s to %s, Fare $%.0lf \n", lowestFareData.airline, lowestFareData.source, lowestFareData.destination, lowestFareData.fare);
+	}
 }
