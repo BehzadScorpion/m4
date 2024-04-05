@@ -13,6 +13,7 @@
 
 
 #include<stdio.h>
+#include<string.h>
 #pragma warning(disable: 4996)
 
 //GLOBAL CONSTANTS
@@ -21,8 +22,11 @@
 #define MAX_LINE_SIZE 41
 //exceptions
 #define SUCCESS 0
-#define FAILURE -1
-#define OPEN_TEXT_FILE_ERROR -2
+#define FLIGHT_PARSING_ERROR -1
+#define OPEN_FLIGHT_FILE_ERROR -2
+#define READ_FLIGHT_FILE_ERROR -3
+#define OPEN_SOURCE_FILE_ERROR -4
+#define READ_SOURCE_FILE_ERROR -5
 
 //Structs
 struct FlightData
@@ -36,6 +40,7 @@ struct FlightData
 //Prototypes
 int parseLine(char* pSource, char* pDestination, double* pFare, char* pLineData);
 int processFlight(char filename[], struct FlightData flights[], int* pNumberOfFlights);
+void displayLeastFareDetails(struct FlightData flights[]); //LAST BUT NOT LEAST
 
 
 //MAIN
@@ -51,13 +56,13 @@ int main(void)
 	if (pSourceFile == NULL) //checks if text file was opened successfully
 	{//exception
 		printf("Error opening source file.");
-		return OPEN_TEXT_FILE_ERROR;
+		return OPEN_SOURCE_FILE_ERROR;
 	}
 	else
 	{//main else block
 
 		// getting each file name from the source file
-		while (fgets(line, sizeof line, pSourceFile) != NULL)
+		while (fgets(line, MAX_LINE_SIZE, pSourceFile) != NULL)
 		{
 			if (feof(pSourceFile)) //end of file?
 			{
@@ -67,11 +72,11 @@ int main(void)
 			if (ferror(pSourceFile))
 			{//exception
 				printf("Error reading source file.\n");
-				break;
+				return READ_SOURCE_FILE_ERROR;
 			}
 
 			//Assuming line was read successfully, it is time to parse:
-			if (sscanf(line, " %s \n", sourceString) != 1)
+			if (sscanf_s(line, " %s", sourceString, MAX_LINE_SIZE) != 1) //string is read to sourceString while ignoring \n
 			{
 				processFlight(sourceString, allFlightData, &totalFlightsCount);
 			}
@@ -94,16 +99,25 @@ int main(void)
 //	char* pDestination: pointer to the "destination" field under the FlightData object
 //	double* pFare: pointer to the "fare" field under the FlightData object
 //	char* pLineData: pointer to the line data passed from processFlight()
-// RETURNS : //CHECK LATER
+// RETURNS : 
 //	int: 0 if operation was successfull
 //	int: -1 if operation was a failure
 //	
 int parseLine(char* pSource, char* pDestination, double* pFare, char* pLineData)
 {
-	if (sscanf(pLineData, "%[^ -]", &inputNumber) != 1)
+	if (sscanf_s(pLineData, "%[^ -] - %[^ ,], %lf", pSource, STRUCT_ARRAY_SIZE, pDestination, STRUCT_ARRAY_SIZE, pFare) != 3)
 	{
-		return INVALID;
+		// Check if dash was found
+		if (strchr(pLineData, '-') == NULL) {
+			printf("Error: Missing dash '-' in %s.\n", pLineData);
+		}
+		// Check if comma was found
+		if (strchr(pLineData, ',') == NULL) {
+			printf("Error: Missing comma ',' in %s.\n", pLineData);
+		}
+		return FLIGHT_PARSING_ERROR;
 	}
+	return SUCCESS;
 }
 
 
@@ -117,9 +131,10 @@ int parseLine(char* pSource, char* pDestination, double* pFare, char* pLineData)
 //	char filename[]: The name of the file that lists all the flight data (the flight-info file.)
 //	struct FlightData flights[]: array of structs that serves to save the parsed flight data.
 //	int* pNumberOfFlights: pointer to total number of flights read and saved.
-// RETURNS : //NEEDS CHANGE
-//	int: 0 if the function operations were a success //NEEDS CHANGE
-//	int: -2 if textfile was not opened successfully  //NEEDS CHANGE
+// RETURNS : 
+//	int: 0 if the function operations were a success 
+//	int: -2 if flight file was not opened successfully  
+//	int: -3 if flight file was not read successfully
 //	
 int processFlight(char filename[], struct FlightData flights[], int* pNumberOfFlights)
 {
@@ -131,11 +146,12 @@ int processFlight(char filename[], struct FlightData flights[], int* pNumberOfFl
 	if (pFlightsFile == NULL) //checks if text file was opened successfully
 	{//exception
 		printf("Error opening flight file.");
+		return OPEN_FLIGHT_FILE_ERROR;
 	}
 	else
 	{//main else block
 
-		while (fgets(flightLine, sizeof flightLine, pFlightsFile) != NULL)
+		while (fgets(flightLine, MAX_LINE_SIZE, pFlightsFile) != NULL)
 		{
 			if (feof(pFlightsFile)) //end of file?
 			{
@@ -144,14 +160,23 @@ int processFlight(char filename[], struct FlightData flights[], int* pNumberOfFl
 
 			if (ferror(pFlightsFile))
 			{//exception
-				printf("Error reading source file.\n");
-				break;
+				printf("Error reading flight file: %s\n", filename);
+				return READ_FLIGHT_FILE_ERROR;
 			}
 
 			//Assuming line was read successfully, it is time to parse:
 			FlightData currentData = flights[*pNumberOfFlights]; //getting current array entry by derefrencing
-			parseLine(currentData.source, currentData.destination, &currentData.fare, flightLine);
-			(*pNumberOfFlights)++; //incrementing source value to keep track of flight count for array indices
+			//ascribing the valid portion of the filename to the airline field:
+			sscanf_s(filename, "%[^.]", currentData.airline, STRUCT_ARRAY_SIZE); //assuming format is correct
+			if (parseLine(currentData.source, currentData.destination, &currentData.fare, flightLine) == 0)
+			{
+				(*pNumberOfFlights)++; //incrementing source value to keep track of flight count for array indices
+			}
+			else
+			{
+				printf("Error reading flight data.\n");
+			}
+			
 
 		}//while loop end
 
