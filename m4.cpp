@@ -20,6 +20,7 @@
 #define SOURCE_FILE_NAME "flights.txt"
 #define STRUCT_ARRAY_SIZE 21
 #define MAX_LINE_SIZE 41
+#define MAX_FLIGHT_DATA 100
 //exceptions
 #define SUCCESS 0
 #define FLIGHT_PARSING_ERROR -1
@@ -48,9 +49,8 @@ int main(void)
 {
 	int totalFlightsCount = 0;
 	FILE* pSourceFile = NULL;
-	struct FlightData allFlightData[] = { { } }; //creating the struct array initialized with default struct values at index 0
+	struct FlightData allFlightData[MAX_FLIGHT_DATA] = { { } }; //creating the struct array initialized with default struct values at index 0
 	char line[MAX_LINE_SIZE] = { "" }; //line read from source file
-	char sourceString[MAX_LINE_SIZE] = { "" }; //stored string from each line read
 
 	pSourceFile = fopen(SOURCE_FILE_NAME, "r");
 	if (pSourceFile == NULL) //checks if text file was opened successfully
@@ -76,14 +76,16 @@ int main(void)
 			}
 
 			//Assuming line was read successfully, it is time to parse:
-			if (sscanf_s(line, " %s", sourceString, MAX_LINE_SIZE) != 1) //string is read to sourceString while ignoring \n
-			{
-				processFlight(sourceString, allFlightData, &totalFlightsCount);
-			}
+			size_t newlineIndex = strcspn(line, "\n");
+			// Replace the newline character with the null terminator
+			line[newlineIndex] = '\0';
+			processFlight(line, allFlightData, &totalFlightsCount);
+			
 
 		}//while loop end
 
 	}//main else block END
+	
 	return SUCCESS;
 }//MAIN end
 
@@ -105,7 +107,7 @@ int main(void)
 //	
 int parseLine(char* pSource, char* pDestination, double* pFare, char* pLineData)
 {
-	if (sscanf_s(pLineData, "%[^ -] - %[^ ,], %lf", pSource, STRUCT_ARRAY_SIZE, pDestination, STRUCT_ARRAY_SIZE, pFare) != 3)
+	if (sscanf_s(pLineData, "%[^-] - %[^,], %lf", pSource, STRUCT_ARRAY_SIZE, pDestination, STRUCT_ARRAY_SIZE, pFare) != 3)
 	{
 		// Check if dash was found
 		if (strchr(pLineData, '-') == NULL) {
@@ -140,7 +142,6 @@ int processFlight(char filename[], struct FlightData flights[], int* pNumberOfFl
 {
 	FILE* pFlightsFile = NULL;
 	char flightLine[MAX_LINE_SIZE] = { "" }; //line read from flights file
-	char flightString[MAX_LINE_SIZE] = { "" }; //stored string from each line read
 
 	pFlightsFile = fopen(filename, "r");
 	if (pFlightsFile == NULL) //checks if text file was opened successfully
@@ -170,6 +171,10 @@ int processFlight(char filename[], struct FlightData flights[], int* pNumberOfFl
 			sscanf_s(filename, "%[^.]", currentData.airline, STRUCT_ARRAY_SIZE); //assuming format is correct
 			if (parseLine(currentData.source, currentData.destination, &currentData.fare, flightLine) == 0)
 			{
+				strcpy_s(flights[*pNumberOfFlights].source, STRUCT_ARRAY_SIZE, currentData.source);
+				strcpy_s(flights[*pNumberOfFlights].destination, STRUCT_ARRAY_SIZE, currentData.destination);
+				strcpy_s(flights[*pNumberOfFlights].airline, STRUCT_ARRAY_SIZE, currentData.airline);
+				flights[*pNumberOfFlights].fare = currentData.fare;
 				(*pNumberOfFlights)++; //incrementing source value to keep track of flight count for array indices
 			}
 			else
